@@ -274,3 +274,32 @@ class NachoAI(Player):
 
         scaling_factor = total_games / 200  # scaling factor generaliztion
         return {card_id: round(totals[card_id] / scaling_factor) for card_id in totals}
+
+
+class RandomPlayer1( Player ):
+    def __init__( self, cardlist ):
+        super().__init__( cardlist, self.__class__.__name__ )
+    def play( self, lastplay, possible, state ):
+        toplay = possible[randrange(0,len( possible ))]
+        return toplay
+    
+class RandomPlayer2( Player ):
+    def __init__( self, cardlist ):
+        super().__init__( cardlist, self.__class__.__name__ )
+    def play( self, lastplay, possible, state ):
+        toplay = possible[randrange(0,len( possible ))]
+        return toplay
+    
+class RandomPlayer3( Player ):
+    def __init__( self, cardlist ):
+        super().__init__( cardlist, self.__class__.__name__ )
+    def play( self, lastplay, possible, state ):
+        toplay = possible[randrange(0,len( possible ))]
+        return toplay
+    
+class RandomPlayer4( Player ):
+    def __init__( self, cardlist ):
+        super().__init__( cardlist, self.__class__.__name__ )
+    def play( self, lastplay, possible, state ):
+        toplay = possible[randrange(0,len( possible ))]
+        return toplay
