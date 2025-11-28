@@ -1,29 +1,14 @@
-from collections import Counter
 from random import randrange
 from FranksZooGame import Hand, Play
 from FranksZooPlayer import Player
 
 
 class NachoAI(Player):
+
     def __init__(self, cardlist):
         # here we can analyze the deck
         super().__init__(cardlist, self.__class__.__name__)
-        # TODO: adjust weights based on deck analysis
-        self.base_weights = {
-            11: 2,   # elephant
-            12: 8,   # whale
-            9: 14,   # polar bear
-            10: 18,  # crocodile
-            7: 30,   # seal
-            6: 40,   # fox
-            2: 46,   # mouse
-            8: 48,   # lion
-            4: 62,   # hedgehog
-            5: 70,   # perch
-            1: 76,   # mosquito
-            3: 84,   # fish
-            0: 0,    # chameleon (joker)
-        }
+        self.base_weights = self._compute_base_weights(cardlist, total_games=1000)
 
     def play(self, lastplay, possible, state):
         # Step 0: only one possible play
@@ -39,7 +24,6 @@ class NachoAI(Player):
         filtered = [p for p in possible if not self._is_losing_move(p, self.hand)]
         if len(filtered) == 0:
             filtered = possible
-        
 
         # Step 3: check winning sequences
         opponent_counts = self._opponent_card_counts(state) # total count of cards opponents may have
@@ -51,9 +35,9 @@ class NachoAI(Player):
 
         # Step 4: move weights
         played_cards = sum(len(play.cards) for play in state.history)
-        num_players = len(state.players)
-        lower = 15 - (played_cards * num_players) / 10
-        upper = 30 - (played_cards * num_players) / 5
+        active_players = sum(1 for player_state in state.players if player_state.handsize > 0)
+        lower = 15 - (played_cards * active_players) / 10
+        upper = 30 - (played_cards * active_players) / 5
 
         candidates = []
         preferred = None
@@ -90,15 +74,16 @@ class NachoAI(Player):
         return len(play.cards) > 0 and len(play.cards) == len(hand.cards)
 
     def _is_losing_move(self, play, hand):
-        # TODO: generalize. So far it assumes only one chameleon per deck and id 0
-        has_chameleon = any(card.id == 0 for card in hand.cards)
-        if not has_chameleon or len(play.cards) <= 0:
+        # Generalized to handle multiple chameleons
+        chameleon_count = sum(1 for card in hand.cards if card.id == 0)
+        if chameleon_count == 0 or len(play.cards) <= 0:
             return False
-        plays_chameleon = any(card.id == 0 for card in play.cards)
-        if plays_chameleon:
+        chameleons_played = sum(1 for card in play.cards if card.id == 0)
+        if chameleons_played == chameleon_count:
             return False
-        # If there is a chameleon in hand and it is not played, and all other cards are played
-        return len(play.cards) == len(hand.cards) - 1
+        # If the amount of chameleons left in hand is the amount of cards left in hand it's a losing move
+        chameleons_left_in_hand = chameleon_count - chameleons_played
+        return chameleons_left_in_hand == len(hand.cards) - len(play.cards)
 
     def _starts_winning_sequence(self, hand, play, opponent_counts):
         # TODO: memoization to avoid recomputing for same hand states
@@ -160,3 +145,36 @@ class NachoAI(Player):
         if animal_in_play < len(play.cards) or (animal_in_hand - animal_in_play) > 0:
             base = base / 4.0 # this number is emperically chosen
         return base
+
+    def _compute_base_weights(self, cardlist, total_games=2000):
+        if cardlist is None or total_games <= 0:
+            return {}
+
+        from FranksZoo import Game
+        from RandomAIs import RandomPlayer1, RandomPlayer2, RandomPlayer3, RandomPlayer4
+        import sys
+        from io import StringIO
+
+        totals = {card.id: 0 for card in cardlist.cards}
+
+        # AIs need to be different to avoid crashing Game
+        players = [RandomPlayer1(cardlist),
+                   RandomPlayer2(cardlist),
+                   RandomPlayer3(cardlist),
+                   RandomPlayer4(cardlist)]
+        
+        for g in range(total_games):
+            game = Game(1, players, cardlist)
+            old_stdout = sys.stdout
+            sys.stdout = StringIO()  # Redirect stdout to nowhere
+            try:
+                game.run()
+            finally:
+                sys.stdout = old_stdout  # Restore stdout
+            for player in game.players:
+                if len(player.hand.cards) > 0:
+                    for card in player.hand.cards:
+                        totals[card.id] += 1
+
+        scaling_factor = total_games / 200  # scaling factor generaliztion
+        return {card_id: round(totals[card_id] / scaling_factor) for card_id in totals}
