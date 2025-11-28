@@ -27,11 +27,11 @@ class NachoAI(Player):
             filtered = possible
 
         # Step 3: check winning sequences
-        opponent_counts = self._opponent_card_counts(state) # total count of cards opponents may have
+        opponent_info = self._opponent_info(state) # total count of cards opponents may have and their hand sizes
         for play in filtered:
             if len(play.cards) == 0:
                 continue
-            if self._starts_winning_sequence(self.hand, play, opponent_counts):
+            if self._starts_winning_sequence(self.hand, play, opponent_info):
                 return play
 
         # Step 4: move weights
@@ -58,7 +58,7 @@ class NachoAI(Player):
             return candidates[randrange(0, len(candidates))]
         return possible[0]
 
-    def _opponent_card_counts(self, state):
+    def _opponent_info(self, state):
         # 1. Initial counts based on full deck
         counts = {card: card.number for card in self.cardlist.cards}
         # 2. Substract cards in own hand
@@ -68,7 +68,12 @@ class NachoAI(Player):
         for hist_play in state.history:
             for card in hist_play.cards:
                 counts[card] -= 1
-        return counts
+
+        # Collect current hand sizes for each opponent still holding cards
+        hand_sizes = [player_state.handsize for player_state in state.players
+                      if player_state.name != self.name and player_state.handsize > 0]
+
+        return {"counts": counts, "hand_sizes": hand_sizes}
 
     def _is_winning_move(self, play, hand):
         # Check if play uses all cards in hand
@@ -86,20 +91,20 @@ class NachoAI(Player):
         chameleons_left_in_hand = chameleon_count - chameleons_played
         return chameleons_left_in_hand == len(hand.cards) - len(play.cards)
 
-    def _starts_winning_sequence(self, hand, play, opponent_counts):
+    def _starts_winning_sequence(self, hand, play, opponent_info):
         # TODO: memoization to avoid recomputing for same hand states
         # A winning sequence is either a winning move ...
         if self._is_winning_move(play, hand):
             return True
         # ... or an undefeatable move that leads to a winning sequence
-        if not self._is_undefeatable(play, opponent_counts):
+        if not self._is_undefeatable(play, opponent_info):
             return False
         next_hand = self._hand_after_play(hand, play)
         # Check if possible openings after our undeafeatable play lead to winning sequences
         for opening in next_hand.playOpening():
             if len(opening.cards) == 0:
                 continue
-            if self._starts_winning_sequence(next_hand, opening, opponent_counts):
+            if self._starts_winning_sequence(next_hand, opening, opponent_info):
                 return True
         return False
 
@@ -111,23 +116,28 @@ class NachoAI(Player):
                 remaining.remove(card)
         return Hand(remaining)
 
-    def _is_undefeatable(self, play, opponent_counts):
+    def _is_undefeatable(self, play, opponent_info):
         simplified = play.simplifiedPlay()
         if simplified is None or len(simplified.cards) == 0:
             return False
         animal = simplified.cards[0]
         needed = len(simplified.cards)
-        # Check if opponents could defeat this play with the same animal + 1 
-        if self._available_for_opponents(animal, needed + 1, opponent_counts):
+        # Check if opponents could defeat this play with the same animal + 1
+        if self._available_for_opponents(animal, needed + 1, opponent_info):
             return False
         # Check if opponents could defeat this play with any predator
         for predator in animal.predator:
-            if self._available_for_opponents(predator, needed, opponent_counts):
+            if self._available_for_opponents(predator, needed, opponent_info):
                 return False
         return True
 
-    def _available_for_opponents(self, card, needed, counts):
-        # Check if opponents could potentially have enough of 'card' (including substitutes)
+    def _available_for_opponents(self, card, needed, opponent_info):
+        # If they have less cards in hand than needed, they can't have it
+        hand_sizes = opponent_info.get("hand_sizes", [])
+        if max(hand_sizes, default=0) < needed:
+            return False
+
+        counts = opponent_info.get("counts", {})
         base = counts.get(card, 0)
         subs = sum(counts.get(sub, 0) for sub in card.substitute)
         if base <= 0:
