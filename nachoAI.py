@@ -35,13 +35,12 @@ class NachoAI(Player):
             if self._starts_winning_sequence(self.hand, play, opponent_info):
                 return play
 
-        # Step 3.5: probabilistic unbeatable moves
-        probability_threshold = 0.4
+        # Step 3.5: probabilistic winning sequences
+        probability_threshold = 0.2
         for play in filtered:
             if len(play.cards) == 0:
                 continue
-            beatable_probability = self._probability_opponents_can_beat(play, opponent_info)
-            if beatable_probability < probability_threshold:
+            if self._starts_probabilistic_winning_sequence(self.hand, play, opponent_info, probability_threshold):
                 return play
 
         # Step 4: move weights
@@ -115,6 +114,27 @@ class NachoAI(Player):
             if len(opening.cards) == 0:
                 continue
             if self._starts_winning_sequence(next_hand, opening, opponent_info):
+                return True
+        return False
+
+    def _starts_probabilistic_winning_sequence(self, hand, play, opponent_info, probability_threshold, cumulative_success=1.0):
+        if self._is_winning_move(play, hand):
+            return True
+
+        beatable_probability = self._probability_opponents_can_beat(play, opponent_info)
+        if beatable_probability >= probability_threshold:
+            return False
+
+        success_probability = cumulative_success * (1 - beatable_probability)
+        if success_probability <= 0:
+            return False
+
+        next_hand = self._hand_after_play(hand, play)
+        for opening in next_hand.playOpening():
+            if len(opening.cards) == 0:
+                continue
+            if self._starts_probabilistic_winning_sequence(next_hand, opening, opponent_info,
+                                                          probability_threshold, success_probability):
                 return True
         return False
 
