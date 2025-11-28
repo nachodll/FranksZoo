@@ -9,6 +9,7 @@ class NachoAI(Player):
         # here we can analyze the deck
         super().__init__(cardlist, self.__class__.__name__)
         self.base_weights = self._compute_base_weights(cardlist, total_games=1000)
+        self.deck_size = sum(card.number for card in self.cardlist.cards)
 
     def play(self, lastplay, possible, state):
         # Step 0: only one possible play
@@ -36,8 +37,8 @@ class NachoAI(Player):
         # Step 4: move weights
         played_cards = sum(len(play.cards) for play in state.history)
         active_players = sum(1 for player_state in state.players if player_state.handsize > 0)
-        lower = 15 - (played_cards * active_players) / 10
-        upper = 30 - (played_cards * active_players) / 5
+        lower = (self.deck_size / 4) - (played_cards * active_players) / 10
+        upper = (self.deck_size / 2) - (played_cards * active_players) / 5
 
         candidates = []
         preferred = None
