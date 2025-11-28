@@ -1,3 +1,4 @@
+from math import comb
 from random import randrange
 from FranksZooGame import Hand, Play
 from FranksZooPlayer import Player
@@ -32,6 +33,15 @@ class NachoAI(Player):
             if len(play.cards) == 0:
                 continue
             if self._starts_winning_sequence(self.hand, play, opponent_info):
+                return play
+
+        # Step 3.5: probabilistic unbeatable moves
+        probability_threshold = 0.4
+        for play in filtered:
+            if len(play.cards) == 0:
+                continue
+            beatable_probability = self._probability_opponents_can_beat(play, opponent_info)
+            if beatable_probability < probability_threshold:
                 return play
 
         # Step 4: move weights
@@ -130,6 +140,61 @@ class NachoAI(Player):
             if self._available_for_opponents(predator, needed, opponent_info):
                 return False
         return True
+
+    def _probability_opponents_can_beat(self, play, opponent_info):
+        simplified = play.simplifiedPlay()
+        if simplified is None or len(simplified.cards) == 0:
+            return 1.0
+
+        animal = simplified.cards[0]
+        needed = len(simplified.cards)
+        probabilities = []
+
+        # Same animal + 1
+        probabilities.append(
+            self._probability_any_opponent_has(animal, needed + 1, opponent_info)
+        )
+
+        # Any predator with same length
+        for predator in animal.predator:
+            probabilities.append(
+                self._probability_any_opponent_has(predator, needed, opponent_info)
+            )
+
+        return max(probabilities, default=0.0)
+
+    def _probability_any_opponent_has(self, card, needed, opponent_info):
+        hand_sizes = opponent_info.get("hand_sizes", [])
+        counts = opponent_info.get("counts", {})
+        available = max(counts.get(card, 0), 0) + sum(max(counts.get(sub, 0), 0) for sub in card.substitute)
+
+        if available < needed:
+            return 0.0
+
+        total_cards = sum(max(count, 0) for count in counts.values())
+        if total_cards <= 0:
+            return 0.0
+
+        def probability_at_least_k(successes, population, draw_size, k):
+            if draw_size > population or draw_size <= 0:
+                return 0.0
+            max_successes = min(draw_size, successes)
+            denominator = comb(population, draw_size)
+            if denominator == 0:
+                return 0.0
+            probability = 0.0
+            for i in range(k, max_successes + 1):
+                probability += comb(successes, i) * comb(population - successes, draw_size - i) / denominator
+            return probability
+
+        probability_no_answer = 1.0
+        for hand_size in hand_sizes:
+            if hand_size <= 0:
+                continue
+            prob_has_answer = probability_at_least_k(available, total_cards, hand_size, needed)
+            probability_no_answer *= 1 - prob_has_answer
+
+        return 1 - probability_no_answer
 
     def _available_for_opponents(self, card, needed, opponent_info):
         # If they have less cards in hand than needed, they can't have it
