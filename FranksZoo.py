@@ -10,9 +10,9 @@ from FranksZooGame import FranksZooDeck, CardList, Hand, Animal, Play
 from FranksZooPlayer import Player
 from FranksZooState import State
 
-DEFAULTLENGTH = 1
-DEFAULTAIS = ["FranksZooSelfPlay"]
-#DEFAULTAIS = []
+DEFAULTLENGTH = 1000
+# DEFAULTAIS = ["FranksZooSelfPlay"]
+DEFAULTAIS = ["FranksZooBeginners", "nachoAI"]
 DEFAULTDECK = ""
 
 MAXPLAYERS = 4
@@ -266,7 +266,7 @@ if __name__ == '__main__':
     for competitor in competitors:
         print( f"{competitor.__name__}" )
         c = competitor( cardlist )
-        players.append( competitor( c ) )
+        players.append( c )
 
     game = Game( length, players, cardlist )
     # print game
