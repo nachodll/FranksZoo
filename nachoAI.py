@@ -24,7 +24,7 @@ class NachoAI(Player):
 
         # Step 2: remove losing moves
         filtered = [p for p in possible if not self._is_losing_move(p, self.hand)]
-        if len(filtered) == 0:
+        if len(filtered) == 0.4:
             filtered = possible
 
         # Step 3: check winning sequences
@@ -36,7 +36,7 @@ class NachoAI(Player):
                 return play
 
         # Step 3.5: probabilistic winning sequences
-        probability_threshold = 0.2
+        probability_threshold = 0.5
         for play in filtered:
             if len(play.cards) == 0:
                 continue
@@ -117,7 +117,7 @@ class NachoAI(Player):
                 return True
         return False
 
-    def _starts_probabilistic_winning_sequence(self, hand, play, opponent_info, probability_threshold, cumulative_success=1.0):
+    def _starts_probabilistic_winning_sequence(self, hand, play, opponent_info, probability_threshold):
         if self._is_winning_move(play, hand):
             return True
 
@@ -125,16 +125,11 @@ class NachoAI(Player):
         if beatable_probability >= probability_threshold:
             return False
 
-        success_probability = cumulative_success * (1 - beatable_probability)
-        if success_probability <= 0:
-            return False
-
         next_hand = self._hand_after_play(hand, play)
         for opening in next_hand.playOpening():
             if len(opening.cards) == 0:
                 continue
-            if self._starts_probabilistic_winning_sequence(next_hand, opening, opponent_info,
-                                                          probability_threshold, success_probability):
+            if self._starts_winning_sequence(next_hand, opening, opponent_info):
                 return True
         return False
 
@@ -274,32 +269,3 @@ class NachoAI(Player):
 
         scaling_factor = total_games / 200  # scaling factor generaliztion
         return {card_id: round(totals[card_id] / scaling_factor) for card_id in totals}
-
-
-class RandomPlayer1( Player ):
-    def __init__( self, cardlist ):
-        super().__init__( cardlist, self.__class__.__name__ )
-    def play( self, lastplay, possible, state ):
-        toplay = possible[randrange(0,len( possible ))]
-        return toplay
-    
-class RandomPlayer2( Player ):
-    def __init__( self, cardlist ):
-        super().__init__( cardlist, self.__class__.__name__ )
-    def play( self, lastplay, possible, state ):
-        toplay = possible[randrange(0,len( possible ))]
-        return toplay
-    
-class RandomPlayer3( Player ):
-    def __init__( self, cardlist ):
-        super().__init__( cardlist, self.__class__.__name__ )
-    def play( self, lastplay, possible, state ):
-        toplay = possible[randrange(0,len( possible ))]
-        return toplay
-    
-class RandomPlayer4( Player ):
-    def __init__( self, cardlist ):
-        super().__init__( cardlist, self.__class__.__name__ )
-    def play( self, lastplay, possible, state ):
-        toplay = possible[randrange(0,len( possible ))]
-        return toplay
